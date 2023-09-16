@@ -12,10 +12,9 @@ class UserViewSet(viewsets.ModelViewSet):
     http_method_names = ['get']
 
     def get_queryset(self):
-        user = self.request.user
-        return self.queryset.filter(company_id=user.company_id)
+        return self.queryset.filter(company_id=self.request.user.company_id)
 
-    @action(methods=['get'],detail=True)
+    @action(methods=['get'], detail=True)
     def kudos(self, request, pk=None):
         qs = Kudos.objects.filter(to_id=pk)
         kudos = KudosSerializer(qs, many=True)
@@ -25,6 +24,5 @@ class UserViewSet(viewsets.ModelViewSet):
 class KudosViewSet(viewsets.ModelViewSet):
     queryset = Kudos.objects.all()
     serializer_class = KudosSerializer
+    http_method_names = ['post']
     ordering = ['-created_at']
-
-

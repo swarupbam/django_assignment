@@ -1,10 +1,13 @@
+from datetime import datetime
 from unittest.mock import patch
-
 from django.test import TestCase
+
+from djangoProject import settings
 from kudos.factories import CompanyFactory, EmployeeFactory, UserKudosCounterFactory
 from rest_framework.test import APIClient
 from kudos.models import UserKudosCounter, Kudos
 import arrow
+
 
 class BaseTest(TestCase):
     def setUp(self) -> None:
@@ -51,7 +54,7 @@ class KudosTest(BaseTest):
         client.credentials(HTTP_AUTHORIZATION='Token ' + token)
         Kudos.objects.create(from_id=self.user1, to_id=self.user3)
         Kudos.objects.create(from_id=self.user2, to_id=self.user3)
-        response = client.get('/api/kudos/', headers={"accept": "application/json"})
+        response = client.get(f"/api/users/{self.user3.id}/kudos/", headers={"accept": "application/json"})
         res_json = response.json()
         self.assertEqual(len(res_json), 2)
 
@@ -62,22 +65,29 @@ class KudosTest(BaseTest):
         client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user2.id, 'message': 'True leader'})
         client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user2.id, 'message': 'Thank you!'})
         client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user3.id})
-        res = client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user3.id})
-        assert res.status_code == 403
+        response = client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user3.id})
+        assert response.status_code == 403
         assert UserKudosCounter.objects.get(user_id=self.user1).counter == 0
 
     @patch('arrow.now')
-    def test_user_should_be_able_to_give_kudos_when_a_new_week_starts(self, mocked_now):
-        mocked_now.return_value = arrow.Arrow(2023, 8, 14)
+    def test_user_should_be_able_to_give_kudos_when_a_new_week_starts(self, mocked_arrow_now):
+        mocked_arrow_now.return_value = arrow.Arrow(2023, 8, 14, tzinfo=settings.TIME_ZONE)
+        UserKudosCounter.objects.filter(user_id=self.user1).update(updated_at=datetime(2023, 8, 6))
         client = APIClient()
         token = self.get_token(client=client, username=self.user1.username, password="123!")
         client.credentials(HTTP_AUTHORIZATION='Token ' + token)
         client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user2.id, 'message': 'True leader'})
+        UserKudosCounter.objects.filter(user_id=self.user1).update(updated_at=datetime(2023, 8, 14))
+
         client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user2.id, 'message': 'Thank you!'})
+        UserKudosCounter.objects.filter(user_id=self.user1).update(updated_at=datetime(2023, 8, 14))
+
         client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user3.id})
+        UserKudosCounter.objects.filter(user_id=self.user1).update(updated_at=datetime(2023, 8, 14))
+
         assert UserKudosCounter.objects.get(user_id=self.user1).counter == 0
 
-        mocked_now.return_value = arrow.Arrow(2023, 8, 23)
+        mocked_arrow_now.return_value = arrow.Arrow(2023, 8, 23)
         res = client.post("/api/kudos/", data={'from_id': self.user1.id, 'to_id': self.user3.id})
         assert res.status_code == 201
         assert UserKudosCounter.objects.get(user_id=self.user1).counter == 2
