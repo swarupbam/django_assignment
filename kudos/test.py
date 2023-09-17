@@ -5,8 +5,7 @@ from django.test import TestCase
 from djangoProject import settings
 from kudos.factories import CompanyFactory, EmployeeFactory, UserKudosCounterFactory
 from rest_framework.test import APIClient
-from kudos.models import UserKudosCounter, Kudos
-import arrow
+from kudos.models import UserKudosCounter, Kudos, arrow
 
 
 class BaseTest(TestCase):
